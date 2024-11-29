@@ -13,8 +13,10 @@ name = "email-newsletter"
 
 [dependencies]
 actix-web = "4.9.0"
+chrono = { version = "0.4.38", default-features = false, features = ["clock"] }
 config = "0.14.1"
 reqwest = "0.12.9"
 serde = { version = "1.0.215", features = ["derive"] }
 sqlx = { version = "0.8.2", features = ["runtime-tokio-rustls", "macros", "postgres", "uuid", "chrono", "migrate"] }
 tokio = { version = "1.41.1", features = ["macros", "rt-multi-thread"] }
+uuid = { version = "1.11.0", features = ["v4"] }
