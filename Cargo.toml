@@ -36,5 +36,6 @@ uuid = { version = "1.11.0", features = ["v4"] }
 validator = "0.19.0"
 
 [dev-dependencies]
+linkify = "0.10.0"
 serde_json = "1.0.134"
 wiremock = "0.6.2"
