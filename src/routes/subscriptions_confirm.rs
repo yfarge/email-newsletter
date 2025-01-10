@@ -3,6 +3,8 @@ use serde::Deserialize;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::domain::SubscriptionToken;
+
 #[derive(Deserialize)]
 pub struct Parameters {
     subscription_token: String,
@@ -13,7 +15,13 @@ pub async fn confirm(
     _parameters: web::Query<Parameters>,
     db_pool: web::Data<PgPool>,
 ) -> HttpResponse {
-    let id = match get_subscriber_id_from_token(&db_pool, &_parameters.subscription_token).await {
+    let subscription_token = match SubscriptionToken::parse(_parameters.subscription_token.clone())
+    {
+        Ok(subscription_token) => subscription_token,
+        Err(_) => return HttpResponse::BadRequest().finish(),
+    };
+
+    let id = match get_subscriber_id_from_token(&db_pool, subscription_token).await {
         Ok(subscriber_id) => subscriber_id,
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
@@ -50,12 +58,12 @@ pub async fn confirm_subscriber(db_pool: &PgPool, subscriber_id: Uuid) -> Result
 )]
 pub async fn get_subscriber_id_from_token(
     db_pool: &PgPool,
-    subscription_token: &str,
+    subscription_token: SubscriptionToken,
 ) -> Result<Option<Uuid>, sqlx::Error> {
     let result = sqlx::query!(
         r#"SELECT subscriber_id from subscription_tokens
         WHERE subscription_token = $1"#,
-        subscription_token
+        subscription_token.as_ref()
     )
     .fetch_optional(db_pool)
     .await

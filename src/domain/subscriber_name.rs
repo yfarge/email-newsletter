@@ -31,7 +31,7 @@ mod tests {
     use claims::{assert_err, assert_ok};
 
     #[test]
-    fn a_256_graphme_long_name_is_valud() {
+    fn a_256_graphme_long_name_is_valid() {
         let name = "ё".repeat(256);
         assert_ok!(SubscriberName::parse(name));
     }
