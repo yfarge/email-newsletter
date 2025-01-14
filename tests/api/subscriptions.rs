@@ -119,3 +119,29 @@ async fn subscribe_sends_a_confirmation_email_with_a_link() {
 
     assert_eq!(confirmation_links.html, confirmation_links.plain_text);
 }
+
+#[tokio::test]
+async fn subscribe_sends_a_confirmation_email_to_users_pending_confirmation() {
+    let app = spawn_app().await;
+    let body = "name=test%20user&email=test_user%40gmail.com";
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&app.email_server)
+        .await;
+
+    for i in 1..=2 {
+        let response = app.post_subscriptions(body.into()).await;
+        assert_eq!(
+            response.status().as_u16(),
+            200,
+            "The API did not succeed with 200 OK after {} requests to subscribe the same user.",
+            i
+        );
+    }
+
+    let email_requests = &app.email_server.received_requests().await.unwrap();
+
+    assert_eq!(email_requests.len(), 2);
+}

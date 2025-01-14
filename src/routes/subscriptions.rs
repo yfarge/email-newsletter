@@ -1,7 +1,7 @@
 use actix_web::{web, HttpResponse};
 use chrono::Utc;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use sqlx::{Executor, PgPool, Postgres, Transaction};
+use sqlx::{Executor, PgPool, Postgres, Row, Transaction};
 use uuid::Uuid;
 
 use crate::{
@@ -50,13 +50,13 @@ pub async fn subscribe(
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
 
-    let subscriber_id = match insert_subscriber(&mut transaction, &new_subscriber).await {
-        Ok(subscriber_id) => subscriber_id,
+    let id = match get_or_insert_subscriber(&mut transaction, &new_subscriber).await {
+        Ok(id) => id,
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
 
     let subscription_token = generate_subscription_token();
-    if store_token(&mut transaction, subscriber_id, &subscription_token)
+    if store_token(&mut transaction, id, &subscription_token)
         .await
         .is_err()
     {
@@ -101,10 +101,12 @@ pub async fn insert_subscriber(
         new_subscriber.name.as_ref(),
         Utc::now()
     );
+
     transaction.execute(query).await.map_err(|e| {
         tracing::error!("Failed to execute query {}.", e);
         e
     })?;
+
     Ok(subscriber_id)
 }
 
@@ -128,7 +130,7 @@ pub async fn send_confirmation_email(
     );
     let html_body = &format!(
         "Welcome to our newsletter!<br />,\
-                Click <a href=\"{}\">here</a> to confirm your subscription.",
+        Click <a href=\"{}\">here</a> to confirm your subscription.",
         confirmation_link
     );
 
@@ -165,4 +167,32 @@ pub async fn store_token(
         e
     })?;
     Ok(())
+}
+
+#[tracing::instrument(name = "Get subscriber id from email", skip(transaction, email))]
+pub async fn get_subscriber_id_from_email(
+    transaction: &mut Transaction<'_, Postgres>,
+    email: &SubscriberEmail,
+) -> Result<Option<Uuid>, sqlx::Error> {
+    let query = sqlx::query!(
+        r#"SELECT id from subscriptions
+        WHERE email = $1"#,
+        email.as_ref()
+    );
+    let result = transaction.fetch_optional(query).await.map_err(|e| {
+        tracing::error!("Failed to execute query: {:?}.", e);
+        e
+    })?;
+
+    Ok(result.map(|r| r.get("id")))
+}
+
+async fn get_or_insert_subscriber(
+    transaction: &mut Transaction<'_, Postgres>,
+    new_subscriber: &NewSubscriber,
+) -> Result<Uuid, sqlx::Error> {
+    match get_subscriber_id_from_email(transaction, &new_subscriber.email).await? {
+        Some(id) => Ok(id),
+        None => insert_subscriber(transaction, new_subscriber).await,
+    }
 }

@@ -10,13 +10,20 @@ pub struct Parameters {
     subscription_token: String,
 }
 
-#[tracing::instrument(name = "Confirm a pending subscriber.", skip(_parameters))]
+impl TryFrom<Parameters> for SubscriptionToken {
+    type Error = String;
+
+    fn try_from(value: Parameters) -> Result<Self, Self::Error> {
+        SubscriptionToken::parse(value.subscription_token)
+    }
+}
+
+#[tracing::instrument(name = "Confirm a pending subscriber.", skip(_parameters, db_pool))]
 pub async fn confirm(
     _parameters: web::Query<Parameters>,
     db_pool: web::Data<PgPool>,
 ) -> HttpResponse {
-    let subscription_token = match SubscriptionToken::parse(_parameters.subscription_token.clone())
-    {
+    let subscription_token = match _parameters.0.try_into() {
         Ok(subscription_token) => subscription_token,
         Err(_) => return HttpResponse::BadRequest().finish(),
     };
@@ -27,7 +34,7 @@ pub async fn confirm(
     };
 
     match id {
-        None => HttpResponse::InternalServerError().finish(),
+        None => HttpResponse::NotFound().finish(),
         Some(id) => {
             if confirm_subscriber(&db_pool, id).await.is_err() {
                 return HttpResponse::InternalServerError().finish();
@@ -37,7 +44,7 @@ pub async fn confirm(
     }
 }
 
-#[tracing::instrument(name = "Mark subscriber as confirmed ", skip(db_pool, subscriber_id))]
+#[tracing::instrument(name = "Mark subscriber as confirmed", skip(db_pool, subscriber_id))]
 pub async fn confirm_subscriber(db_pool: &PgPool, subscriber_id: Uuid) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"UPDATE subscriptions SET status = 'confirmed' WHERE id = $1"#,
