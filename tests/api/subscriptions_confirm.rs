@@ -1,9 +1,8 @@
+use crate::helpers::spawn_app;
 use wiremock::{
     matchers::{method, path},
     Mock, ResponseTemplate,
 };
-
-use crate::helpers::spawn_app;
 
 #[tokio::test]
 async fn confirmations_without_token_are_rejected_with_a_400() {
@@ -64,7 +63,7 @@ async fn confirmations_with_an_invalid_token_format_are_rejected_with_a_400() {
 }
 
 #[tokio::test]
-async fn confirmations_with_well_formatted_but_non_existent_token_are_rejected_with_a_404() {
+async fn confirmations_with_well_formatted_but_non_existent_token_are_rejected_with_a_401() {
     let app = spawn_app().await;
 
     let response = reqwest::get(&format!(
@@ -75,5 +74,5 @@ async fn confirmations_with_well_formatted_but_non_existent_token_are_rejected_w
     .await
     .unwrap();
 
-    assert_eq!(response.status().as_u16(), 404);
+    assert_eq!(response.status().as_u16(), 401);
 }
