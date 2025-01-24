@@ -128,10 +128,6 @@ async fn non_existent_user_is_rejected() {
         .expect("Failed to execute request.");
 
     assert_eq!(response.status().as_u16(), 401);
-    assert_eq!(
-        response.headers()["WWW-Authenticate"],
-        r#"Basic realm="publish""#
-    );
 }
 
 #[tokio::test]

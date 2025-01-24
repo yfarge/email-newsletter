@@ -2,7 +2,7 @@
 pub struct SubscriptionToken(String);
 
 impl SubscriptionToken {
-    pub fn parse(s: String) -> Result<SubscriptionToken, String> {
+    pub fn parse(s: String) -> Result<Self, String> {
         let is_empty_or_whitespace = s.trim().is_empty();
         let is_too_long = s.chars().count() > 25;
         let is_too_short = s.chars().count() < 25;
