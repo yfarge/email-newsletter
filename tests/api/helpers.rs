@@ -152,6 +152,17 @@ impl TestApp {
             .await
             .expect("Failed to execute request")
     }
+
+    pub async fn get_newsletters_html(&self) -> String {
+        self.api_client
+            .get(&format!("{}/admin/newsletters", &self.address))
+            .send()
+            .await
+            .expect("Faield to execute request")
+            .text()
+            .await
+            .unwrap()
+    }
 }
 
 pub async fn spawn_app() -> TestApp {

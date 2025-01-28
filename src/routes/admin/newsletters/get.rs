@@ -22,15 +22,15 @@ pub async fn newsletter_form(flash_messages: IncomingFlashMessages) -> HttpRespo
                     {message_html}
                     <form action="/admin/newsletters" method="POST">
                         <label>Title
-                            <input type="text" placeholder="Enter title" name="title" required/>
+                            <input type="text" placeholder="Enter title" name="title" />
                         </label>
                         <br />
                         <label>Plain Text
-                            <textarea placeholder="Enter plain text" name="text" required></textarea>
+                            <textarea placeholder="Enter plain text" name="text"></textarea>
                         </label>
                         <br />
                         <label>Html Text
-                            <textarea placeholder="Enter html" name="html" required></textarea>
+                            <textarea placeholder="Enter html" name="html"></textarea>
                         </label>
                         <br />
                         <button type="submit">Submit</button>

@@ -27,6 +27,9 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
 
     let response = app.post_newsletters(newsletter_request_body).await;
     assert_is_redirect_to(&response, "/admin/newsletters");
+
+    let html_page = app.get_newsletters_html().await;
+    assert!(html_page.contains("<p><i>Newsletter published successfully!</i></p>"))
 }
 
 #[tokio::test]
@@ -54,6 +57,9 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
 
     let response = app.post_newsletters(newsletter_request_body).await;
     assert_is_redirect_to(&response, "/admin/newsletters");
+
+    let html_page = app.get_newsletters_html().await;
+    assert!(html_page.contains("<p><i>Newsletter published successfully!</i></p>"))
 }
 
 #[tokio::test]
@@ -76,9 +82,9 @@ async fn newsletters_returns_400_for_invalid_data() {
         ),
         (
             serde_json::json!({ "title": "Newsletter Title" }),
-            "missing content",
+            "missing html and text",
         ),
-        (serde_json::json!({}), "missing title and content"),
+        (serde_json::json!({}), "missing title and html and text"),
     ];
 
     for (invalid_body, error_message) in test_cases {
