@@ -7,6 +7,7 @@ pub async fn newsletter_form(flash_messages: IncomingFlashMessages) -> HttpRespo
     for m in flash_messages.iter() {
         writeln!(message_html, "<p><i>{}</i></p>", m.content()).unwrap()
     }
+    let idempotency_key = uuid::Uuid::new_v4().to_string();
 
     HttpResponse::Ok()
         .content_type(ContentType::html())
@@ -33,6 +34,7 @@ pub async fn newsletter_form(flash_messages: IncomingFlashMessages) -> HttpRespo
                             <textarea placeholder="Enter html" name="html"></textarea>
                         </label>
                         <br />
+                        <input hidden type="text" name="idempotency_key" value={idempotency_key} />
                         <button type="submit">Submit</button>
                     </form>
                 </body>
