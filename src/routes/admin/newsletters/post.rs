@@ -1,6 +1,6 @@
 use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
-use crate::idempotency::{save_response, IdempotencyKey};
+use crate::idempotency::{get_saved_response, save_response, IdempotencyKey};
 use crate::routes::admin::dashboard::get_username;
 use crate::utils::{e400, see_other};
 use crate::{authentication::UserId, utils::e500};
@@ -45,6 +45,13 @@ pub async fn publish_newsletter(
     } = form.0;
 
     let idempotency_key: IdempotencyKey = idempotency_key.try_into().map_err(e400)?;
+    if let Some(saved_response) = get_saved_response(&pool, &idempotency_key, *user_id)
+        .await
+        .map_err(e500)?
+    {
+        FlashMessage::info("The newsletter issue has been published!").send();
+        return Ok(saved_response);
+    };
     let subscribers = get_confirmed_subscribers(&pool).await.map_err(e500)?;
     for subscriber in subscribers {
         match subscriber {
