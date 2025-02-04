@@ -1,7 +1,17 @@
-use crate::{domain::SubscriberEmail, email_client::EmailClient};
+use std::time::Duration;
+
+use crate::{
+    configuration::Settings, domain::SubscriberEmail, email_client::EmailClient,
+    startup::get_connection_pool,
+};
 use sqlx::{Executor, PgPool, Postgres, Transaction};
 use tracing::{field::display, Span};
 use uuid::Uuid;
+
+pub enum ExecutionOutcome {
+    TaskCompleted,
+    EmptyQueue,
+}
 
 #[tracing::instrument(
     skip_all,
@@ -11,8 +21,15 @@ use uuid::Uuid;
     ),
     err
 )]
-async fn try_execute_task(pool: &PgPool, email_client: &EmailClient) -> Result<(), anyhow::Error> {
-    if let Some((transaction, issue_id, email)) = dequeue_task(pool).await? {
+pub async fn try_execute_task(
+    pool: &PgPool,
+    email_client: &EmailClient,
+) -> Result<ExecutionOutcome, anyhow::Error> {
+    let task = dequeue_task(pool).await?;
+    if task.is_none() {
+        return Ok(ExecutionOutcome::EmptyQueue);
+    }
+    if let Some((transaction, issue_id, email)) = task {
         Span::current()
             .record("newsletter_issue_id", display(issue_id))
             .record("subscriber_email", display(&email));
@@ -46,22 +63,17 @@ async fn try_execute_task(pool: &PgPool, email_client: &EmailClient) -> Result<(
 
         delete_task(transaction, issue_id, &email).await?;
     }
-    Ok(())
+    Ok(ExecutionOutcome::TaskCompleted)
 }
 
 type PgTransaction = Transaction<'static, Postgres>;
-
-struct Task {
-    newsletter_issue_id: Uuid,
-    subscriber_email: String,
-}
 
 #[tracing::instrument(skip_all)]
 async fn dequeue_task(
     pool: &PgPool,
 ) -> Result<Option<(PgTransaction, Uuid, String)>, anyhow::Error> {
     let mut transaction = pool.begin().await?;
-    let query = sqlx::query!(
+    let r = sqlx::query!(
         r#"
         SELECT newsletter_issue_id, subscriber_email
         FROM issue_delivery_queue
@@ -69,8 +81,9 @@ async fn dequeue_task(
         SKIP LOCKED
         LIMIT 1
         "#,
-    );
-    let r = transaction.fetch_optional(query).await?;
+    )
+    .fetch_optional(&mut *transaction)
+    .await?;
     if let Some(r) = r {
         Ok(Some((
             transaction,
@@ -124,4 +137,20 @@ async fn get_issue(pool: &PgPool, issue_id: Uuid) -> Result<NewsletterIssue, any
     .fetch_one(pool)
     .await?;
     Ok(issue)
+}
+
+async fn worker_loop(pool: PgPool, email_client: EmailClient) -> Result<(), anyhow::Error> {
+    loop {
+        match try_execute_task(&pool, &email_client).await {
+            Ok(ExecutionOutcome::EmptyQueue) => tokio::time::sleep(Duration::from_secs(10)).await,
+            Err(_) => tokio::time::sleep(Duration::from_secs(1)).await,
+            Ok(ExecutionOutcome::TaskCompleted) => {}
+        }
+    }
+}
+
+pub async fn run_worker_until_stopped(configuration: Settings) -> Result<(), anyhow::Error> {
+    let connection_pool = get_connection_pool(&configuration.database);
+    let email_client = configuration.email_client.client();
+    worker_loop(connection_pool, email_client).await
 }
