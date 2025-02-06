@@ -133,3 +133,38 @@ async fn changing_password_flow() {
     let response = app.post_login(&login_body).await;
     assert_is_redirect_to(&response, "/admin/dashboard");
 }
+
+#[tokio::test]
+async fn invalid_passwords_are_rejected() {
+    let app = spawn_app().await;
+
+    let test_cases = vec![
+        (
+            serde_json::json!({
+                "current_password": &app.test_user.password,
+                "new_password": ".",
+                "new_password_check": "."
+            }),
+            "Password must be at least 12 characters long.",
+        ),
+        (
+            serde_json::json!({
+                "current_password": &app.test_user.password,
+                "new_password": ".".repeat(129),
+                "new_password_check": ".".repeat(129)
+            }),
+            "Password must be at most 128 characters long.",
+        ),
+    ];
+
+    let response = app.test_user.login(&app).await;
+    assert_is_redirect_to(&response, "/admin/dashboard");
+
+    for (invalid_body, error_message) in test_cases {
+        let response = app.post_change_password(&invalid_body).await;
+        assert_is_redirect_to(&response, "/admin/password");
+
+        let html_page = app.get_change_password_html().await;
+        assert!(html_page.contains(error_message))
+    }
+}
