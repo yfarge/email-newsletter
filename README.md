@@ -2,6 +2,15 @@
 
 An email newsletter delivery service built using [actix-web](https://github.com/actix/actix-web).
 
+## **Project Goals**
+
+The goal of this application is to learn how to build a production-level web application in Rust while exploring:
+
+- Authentication strategies
+- Fault-tolerant workflows
+- Black-box testing
+- Error handling
+
 ## **Features**
 
 - ✅ Health check
@@ -19,6 +28,7 @@ An email newsletter delivery service built using [actix-web](https://github.com/
 - **Session Store:** Redis
 - **Web Framework:** Actix-web
 - **Deployment:** Digital Ocean App Platform
+- **Email Server:** Postmark
 
 ## **Installation**
 
